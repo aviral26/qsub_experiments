@@ -284,7 +284,7 @@ def run_qsub_parameter_sweep(parameters, mapper_fn=mapAnalysis, reducer_fn=reduc
         seed = random.randint(0, 2147483647)
 
     counter = 0
-    base_dir = '/home/aviral/CSE/qsub_experiments/temp/'
+    base_dir = os.path.join('/home/aviral/CSE/qsub_experiments/', "temp_" + str(uuid.uuid4()))
     qsub_file = "/home/aviral/CSE/qsub_experiments/job_submission.pbs"
     job_file = "/home/aviral/CSE/qsub_experiments/ComputeEnsemble.py"
     job_name_prefix = "xyz_ps_job_"
@@ -307,8 +307,9 @@ def run_qsub_parameter_sweep(parameters, mapper_fn=mapAnalysis, reducer_fn=reduc
         unpickled_list.append(model)
         unpickled_list.append(mapper_fn)
 
-        # create temp directory for this job. TODO make this a random name
-        temp_job_directory = os.path.join(base_dir, job_name_prefix + str(counter) + "/")
+        job_name = job_name_prefix + str(counter)
+        # create temp directory for this job.
+        temp_job_directory = os.path.join(base_dir, job_name + "/")
         if not os.path.exists(temp_job_directory):
             os.makedirs(temp_job_directory)
 
@@ -323,7 +324,6 @@ def run_qsub_parameter_sweep(parameters, mapper_fn=mapAnalysis, reducer_fn=reduc
         # write molns_cloudpickle.
         shutil.copyfile(molns_cloudpickle_file, os.path.join(temp_job_directory, "molns_cloudpickle.py"))
 
-        job_name = job_name_prefix + str(counter)
         containers.append(job_name)
         # invoke qsub to star container with same name as job_name
         Popen(['qsub', '-d', temp_job_directory, '-N', job_name, qsub_file], shell=False)
