@@ -251,6 +251,17 @@ def wait_for_all_results_to_return(dirs):
     print "all results computed."
 
 
+def clean_up(dirs_to_delete, containers_to_delete):
+
+    print "removing temp directory"
+    for dir in dirs_to_delete:
+        shutil.rmtree(dir)
+
+    print "removing finished containers.."
+    for container in containers_to_delete:
+        Popen(['sudo', 'docker', 'rm', '-f', container], shell=False)
+
+
 def run_qsub_parameter_sweep(parameters, mapper_fn=mapAnalysis, reducer_fn=reduceAnalysis):
     pset_list = []
     dat = []
@@ -275,10 +286,11 @@ def run_qsub_parameter_sweep(parameters, mapper_fn=mapAnalysis, reducer_fn=reduc
     counter = 0
     base_dir = '/home/aviral/CSE/qsub_experiments/temp/'
     qsub_file = "/home/aviral/CSE/qsub_experiments/job_submission.pbs"
-    job_file = "/home/aviral/CSE/qsub_experiments/DummySubprocess.py"
+    job_file = "/home/aviral/CSE/qsub_experiments/ComputeEnsemble.py"
+    job_name_prefix = "xyz_ps_job_"
     molns_cloudpickle_file = "/home/aviral/CSE/molnsutil/molnsutil/molns_cloudpickle.py"
     dirs = []
-    submitted_jobs = []
+    containers = []
 
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
@@ -295,23 +307,25 @@ def run_qsub_parameter_sweep(parameters, mapper_fn=mapAnalysis, reducer_fn=reduc
         unpickled_list.append(model)
         unpickled_list.append(mapper_fn)
 
-        # create temp directory for this job.
-        temp_job_directory = os.path.join(base_dir, 'ps_job_' + str(counter) + "/")
+        # create temp directory for this job. TODO make this a random name
+        temp_job_directory = os.path.join(base_dir, job_name_prefix + str(counter) + "/")
         if not os.path.exists(temp_job_directory):
             os.makedirs(temp_job_directory)
 
         # write input file for qsub job.
-        with open(os.path.join(temp_job_directory, "input"), "wb") as output:
-            CloudPickle.dump(unpickled_list, output)
+        output = open(os.path.join(temp_job_directory, "input"), "wb")
+        CloudPickle.dump(unpickled_list, output)
         output.close()
 
         # write job program file.
-        shutil.copyfile(job_file, os.path.join(temp_job_directory, "DummySubprocess.py"))
+        shutil.copyfile(job_file, os.path.join(temp_job_directory, "ComputeEnsemble.py"))
 
         # write molns_cloudpickle.
         shutil.copyfile(molns_cloudpickle_file, os.path.join(temp_job_directory, "molns_cloudpickle.py"))
 
-        job_name = 'lc_ps_job_' + str(counter)
+        job_name = job_name_prefix + str(counter)
+        containers.append(job_name)
+        # invoke qsub to star container with same name as job_name
         Popen(['qsub', '-d', temp_job_directory, '-N', job_name, qsub_file], shell=False)
 
         dirs.append(temp_job_directory)
@@ -325,8 +339,9 @@ def run_qsub_parameter_sweep(parameters, mapper_fn=mapAnalysis, reducer_fn=reduc
     for dir in dirs:
         mapped_list = get_unpickled_result(dir)
         dat.append({ 'parameters' : pset, 'result' : reducer_fn(mapped_list) })
-    # clean up.
-    shutil.rmtree(base_dir)
+
+    # remove temporary files and finished containers.
+    clean_up([base_dir], containers)
 
     return dat
 

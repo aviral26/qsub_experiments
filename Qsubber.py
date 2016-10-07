@@ -2,7 +2,7 @@ import subprocess
 
 l = []
 for i in (0, 1):
-    l.append(subprocess.Popen(['python', 'DummySubprocess.py'], shell=False, stdin=subprocess.PIPE,
+    l.append(subprocess.Popen(['python', 'ComputeEnsemble.py'], shell=False, stdin=subprocess.PIPE,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE))
 
 print "Waiting for {0} processes.".format(len(l))
